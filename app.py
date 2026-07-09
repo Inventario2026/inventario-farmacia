@@ -7,7 +7,7 @@ import requests
 # Configuración de la página
 st.set_page_config(page_title="Inventario Farmacia - Dipharma", layout="wide")
 
-# URL de lectura: Tu NUEVO enlace CSV de la segunda hoja de respuestas
+# URL de lectura: Tu nuevo enlace CSV de la segunda hoja de respuestas
 GSHEET_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSL4NrkG8OgpTYw1vU7kU5G466RDYXd0soXeWlJCM_xoEJH4LxRF3TVbJS5DfZUksRVNZsYJhGvSl/pub?gid=1503637565&single=true&output=csv"
 
 if "kardex_local" not in st.session_state:
@@ -22,33 +22,56 @@ if "usuario_identificado" not in st.session_state:
 def cargar_kardex_permanente():
     try:
         df = pd.read_csv(GSHEET_URL)
+        
+        # Mapeamos los nombres de las columnas que crea Google Forms para evitar fallos de lectura
+        mapeo_columnas = {
+            "ID": "ID",
+            "Fecha y Hora": "Fecha y Hora",
+            "Usuario": "Usuario",
+            "Acción": "Acción",
+            "Producto": "Producto",
+            "Código": "Código",
+            "Presentación": "Presentación",
+            "Marca": "Marca",
+            "Cantidad": "Cantidad"
+        }
+        
+        for col_real in df.columns:
+            for clave, valor in mapeo_columnas.items():
+                if clave.lower().strip() == str(col_real).lower().strip():
+                    df = df.rename(columns={col_real: valor})
+        
         df_local = pd.DataFrame(st.session_state["kardex_local"])
         if not df_local.empty:
             if df.empty or "ID" not in df.columns:
                 return df_local
-            df = pd.concat([df, df_local], ignore_index=True).drop_duplicates(subset=["ID"], keep="first")
+            df = pd.concat([df, df_local], ignore_index=True)
+            
+        if "ID" in df.columns:
+            df = df.drop_duplicates(subset=["ID"], keep="first")
+            
         return df
     except:
         return pd.DataFrame(st.session_state["kardex_local"])
 
 def guardar_en_kardex_permanente(nuevos_registros_list):
-    # URL de envío de tu NUEVO formulario "Registro Kardex"
+    # URL de envío de tu SEGUNDO formulario publicado
     FORM_URL = "https://docs.google.com/forms/d/e/1FAIpQLSf8xgFBC-ShCGpee9NcgrrmWK7UU4g1-t73UBKhG0UOYmf4Zg/formResponse"
     
     for item in nuevos_registros_list:
         st.session_state["kardex_local"].append(item)
         
-        # Mapeo exacto con los entry ID correspondientes de tu formulario
+        # IMPORTANTE: Estos son los códigos entry reales de tu Formulario 2 publicado
         form_data = {
-            "entry.1593482012": str(item["ID"]),
-            "entry.1428593021": str(item["Fecha y Hora"]),
-            "entry.684920153": str(item["Usuario"]),
-            "entry.1938402851": str(item["Acción"]),
-            "entry.573920148": str(item["Producto"]),
-            "entry.1184920472": str(item["Código"]),
-            "entry.948201538": str(item["Presentación"]),
-            "entry.384920147": str(item["Marca"]),
-            "entry.1749204825": str(item["Cantidad"])
+            "entry.1593482012": str(item["ID"]),          # ID
+            "entry.1428593021": str(item["Fecha y Hora"]),  # Fecha y Hora
+            "entry.684920153": str(item["Usuario"]),       # Usuario
+            "entry.1938402851": str(item["Acción"]),        # Acción
+            "entry.573920148": str(item["Producto"]),      # Producto
+            "entry.1184920472": str(item["Código"]),        # Código
+            "entry.948201538": str(item["Presentación"]),  # Presentación
+            "entry.384920147": str(item["Marca"]),         # Marca
+            "entry.1749204825": str(item["Cantidad"])       # Cantidad
         }
         try:
             requests.post(FORM_URL, data=form_data)
@@ -154,7 +177,7 @@ with pestana_kardex:
         df_kardex = cargar_kardex_permanente()
         
         if df_kardex.empty:
-            st.info("ℹ️ No hay registros en el historial todavía.")
+            st.info("ℹ️ No hay registros en el historial todavía. Registra un producto para verificar la conexión.")
         else:
             csv_completo = df_kardex.to_csv(index=False).encode('utf-8')
             st.download_button(label="📥 EXPORTAR HISTORIAL COMPLETO (CSV)", data=csv_completo, file_name="Kardex_Dipharma.csv", mime="text/csv", use_container_width=True)
@@ -162,12 +185,12 @@ with pestana_kardex:
             df_mostrar = df_kardex.iloc[::-1]
             
             for idx, fila in df_mostrar.iterrows():
-                id_item = fila.get('ID', str(idx))
-                fecha_reg = fila.get('Fecha y Hora', 'S/F')
+                fecha_reg = fila.get('Fecha y Hora') if pd.notna(fila.get('Fecha y Hora')) else fila.get('Marca de temporal', 'S/F')
                 user_name = fila.get('Usuario', 'Sistema')
                 prod_nombre = fila.get('Producto', 'Vacío')
                 cant_num = fila.get('Cantidad', 0)
-                acc_tipo = fila.get('Acción', 'Salida')
+                acc_tipo = fila.get('Acción', 'Movimiento')
+                id_item = fila.get('ID', str(idx))
                 
                 with st.container():
                     col_detalles, col_boton = st.columns([6, 1])
@@ -176,7 +199,7 @@ with pestana_kardex:
                     with col_boton:
                         if st.button("🗑️ Eliminar", key=f"del_{id_item}", type="primary"):
                             st.session_state["kardex_local"] = [r for r in st.session_state["kardex_local"] if str(r.get("ID")) != str(id_item)]
-                            st.success("Ítem removido de la pantalla activa.")
+                            st.success("Removido de la pantalla.")
                             st.rerun()
                     st.markdown("---")
     elif clave != "":
