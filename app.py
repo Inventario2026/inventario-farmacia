@@ -7,8 +7,8 @@ import requests
 # Configuración de la página
 st.set_page_config(page_title="Inventario Farmacia - Dipharma", layout="wide")
 
-# URL de lectura: Tu nueva hoja de respuestas de Google Sheets (Formato CSV)
-GSHEET_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSL4NrkG8OgpTYw1vU7kU5G466RDYXd0soXeGPWIJCM_xoEJH4LxRF3TVbJS5DfZUksRVNZsYJhGvSl/pub?gid=149297284&single=true&output=csv"
+# URL de lectura: Tu NUEVO enlace CSV de la segunda hoja de respuestas
+GSHEET_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSL4NrkG8OgpTYw1vU7kU5G466RDYXd0soXeWlJCM_xoEJH4LxRF3TVbJS5DfZUksRVNZsYJhGvSl/pub?gid=1503637565&single=true&output=csv"
 
 if "kardex_local" not in st.session_state:
     st.session_state["kardex_local"] = []
