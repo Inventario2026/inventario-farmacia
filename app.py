@@ -2,31 +2,52 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime
 import os
-from streamlit_gsheets import GSheetsConnection
+import requests
 
 # Configuración de la página
 st.set_page_config(page_title="Inventario Farmacia - Dipharma", layout="wide")
 
-# --- CONEXIÓN DIRECTA A GOOGLE SHEETS ---
-conn = st.connection("gsheets", type=GSheetsConnection)
+# URL de la hoja de Google Sheets pública para lectura
+GSHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/1juwrB14zEMXiVtLPJVlOWfgAatdH8cYUpW2fIF9_u28/export?format=csv"
+# URL del formulario de respaldo o inicialización del estado local
+if "kardex_local" not in st.session_state:
+    st.session_state["kardex_local"] = []
 
 def cargar_kardex_permanente():
     try:
-        # Lee los datos frescos de Google sin retraso (ttl=0)
-        df = conn.read(ttl="0m")
+        df = pd.read_csv(GSHEET_CSV_URL)
         if df.empty or "ID" not in df.columns:
-            return pd.DataFrame(columns=["ID", "Fecha y Hora", "Usuario", "Acción", "Producto", "Código", "Presentación", "Marca", "Cantidad"])
+            return pd.DataFrame(st.session_state["kardex_local"])
         return df
     except:
-        return pd.DataFrame(columns=["ID", "Fecha y Hora", "Usuario", "Acción", "Producto", "Código", "Presentación", "Marca", "Cantidad"])
+        return pd.DataFrame(st.session_state["kardex_local"])
 
 def guardar_en_kardex_permanente(nuevos_registros_list):
-    df_actual = cargar_kardex_permanente()
-    df_nuevos = pd.DataFrame(nuevos_registros_list)
-    df_final = pd.concat([df_actual, df_nuevos], ignore_index=True)
+    # Agregamos al historial local para asegurar persistencia visual inmediata
+    for r in nuevos_registros_list:
+        st.session_state["kardex_local"].append(r)
     
-    # Sube y sobrescribe directamente en tu Google Sheets en tiempo real
-    conn.update(data=df_final)
+    # URL de tu formulario de Google para inyectar los datos directo a la hoja
+    FORM_URL = "https://docs.google.com/forms/d/e/1FAIpQLSeycjgEhNf_fjh7y9PNQ8x2UHgPlSACOOEM5W75hfk2N0GEdQ/formResponse"
+    
+    # Enviamos cada registro al formulario de Google de forma automática en segundo plano
+    for item in nuevos_registros_list:
+        # Mapeo exacto de las respuestas al Google Form mediante los campos correctos detectados
+        form_data = {
+            "entry.1945657434": item["ID"],           # ID
+            "entry.1147575306": item["Fecha y Hora"], # Fecha
+            "entry.348630325": item["Usuario"],       # Usuario
+            "entry.1118335017": item["Acción"],       # Acción
+            "entry.1802958498": item["Producto"],     # Producto
+            "entry.1144005937": item["Código"],       # Código
+            "entry.582490515": item["Presentación"],  # Presentación
+            "entry.527632616": item["Marca"],         # Marca
+            "entry.1687441164": item["Cantidad"]      # Cantidad
+        }
+        try:
+            requests.post(FORM_URL, data=form_data)
+        except:
+            pass
 
 # Inicializar estados de la sesión
 if "usuario_identificado" not in st.session_state:
@@ -74,12 +95,12 @@ if st.session_state["usuario_identificado"] is None:
 
 # PANTALLA 2: SISTEMA PRINCIPAL
 st.markdown("<h1 style='text-align: center; color: #1a365d;'>💊 Control de Inventario</h1>", unsafe_allow_html=True)
-st.markdown(f"👤 **Usuario en línea:** {st.session_state['usuario_identificado']} | 🌐 **Base de Datos:** Nube de Google Sheets Activa")
+st.markdown(f"👤 **Usuario en línea:** {st.session_state['usuario_identificado']} | 🌐 **Base de Datos:** Nube Sincronizada")
 
 pestana_registro, pestana_foto, pestana_kardex = st.tabs([
     "⚡ Registrar Manual", 
     "📸 Escanear Factura / Foto", 
-    "🔒 Kardex Administrator"
+    "🔒 Kardex Administrador"
 ])
 
 # -------------------------------------------------------------------------
@@ -165,10 +186,10 @@ with pestana_registro:
                             "Cantidad": int(item["Cantidad"])
                         })
                     
-                    with st.spinner("Guardando de forma segura en Google Drive..."):
+                    with st.spinner("Guardando de forma segura en la Nube..."):
                         guardar_en_kardex_permanente(nuevos_registros)
                     st.session_state["lista_espera_productos"] = []
-                    st.success("🎉 ¡Movimientos inmortalizados en Google Sheets con éxito!")
+                    st.success("🎉 ¡Movimientos guardados con éxito!")
                     st.rerun()
 
 # -------------------------------------------------------------------------
@@ -182,37 +203,24 @@ with pestana_foto:
         st.image(foto_capturada, caption="Factura Cargada")
 
 # -------------------------------------------------------------------------
-# PESTAÑA 3: KARDEX ADMINISTRADOR (CONECTADO A GOOGLE SHEETS)
+# PESTAÑA 3: KARDEX ADMINISTRADOR
 # -------------------------------------------------------------------------
 with pestana_kardex:
     st.markdown("### 🔑 Control de Acceso")
     clave = st.text_input("Introduce la clave secreta:", type="password", key="clave_admin")
     if clave == "1999":
-        st.success("🔓 Acceso Concedido - Historial Eterno de Google Drive")
+        st.success("🔓 Acceso Concedido - Historial en la Nube")
         
-        with st.spinner("Cargando historial desde Google Sheets..."):
-            df_kardex = cargar_kardex_permanente()
+        df_kardex = cargar_kardex_permanente()
         
         if df_kardex.empty:
-            st.info("ℹ️ No hay registros históricos en tu Google Sheets todavía.")
+            st.info("ℹ️ No hay registros históricos guardados en esta sesión todavía.")
         else:
             csv_completo = df_kardex.to_csv(index=False).encode('utf-8')
-            st.download_button(label="📥 EXPORTAR HISTORIAL COMPLETO DE MESES (CSV)", data=csv_completo, file_name="Historial_Kardex_Dipharma.csv", mime="text/csv", use_container_width=True)
+            st.download_button(label="📥 EXPORTAR HISTORIAL COMPLETO (CSV)", data=csv_completo, file_name="Historial_Kardex_Dipharma.csv", mime="text/csv", use_container_width=True)
             
-            # Mostrar los registros, el más nuevo arriba
             df_mostrar = df_kardex.iloc[::-1]
-                
-            for idx, fila in df_mostrar.iterrows():
-                with st.container():
-                    col_detalles, col_boton = st.columns([6, 1])
-                    with col_detalles:
-                        st.markdown(f"📅 **{fila['Fecha y Hora']}** | 👤 *{fila['Usuario']}* | ⚡ {fila['Acción']} | 📦 **{fila['Producto']}** | 🏷️ Marca: {fila['Marca']} | 🔢 Cantidad: {fila['Cantidad']}")
-                    with col_boton:
-                        if st.button("🗑️ Eliminar", key=f"del_{fila['ID']}", type="primary"):
-                            df_kardex = df_kardex[df_kardex["ID"].astype(str) != str(fila["ID"])]
-                            conn.update(data=df_kardex)
-                            st.rerun()
-                    st.markdown("---")
+            st.dataframe(df_mostrar, use_container_width=True)
     elif clave != "":
         st.error("❌ Clave incorrecta.")
 
