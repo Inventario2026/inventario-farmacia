@@ -7,7 +7,7 @@ import requests
 # Configuración de la página
 st.set_page_config(page_title="Inventario Farmacia - Dipharma", layout="wide")
 
-# URL de lectura: Tu nuevo enlace CSV de la segunda hoja de respuestas
+# URL de lectura: Tu enlace CSV de la segunda hoja de respuestas
 GSHEET_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSL4NrkG8OgpTYw1vU7kU5G466RDYXd0soXeWlJCM_xoEJH4LxRF3TVbJS5DfZUksRVNZsYJhGvSl/pub?gid=1503637565&single=true&output=csv"
 
 if "kardex_local" not in st.session_state:
@@ -61,17 +61,17 @@ def guardar_en_kardex_permanente(nuevos_registros_list):
     for item in nuevos_registros_list:
         st.session_state["kardex_local"].append(item)
         
-        # IMPORTANTE: Estos son los códigos entry reales de tu Formulario 2 publicado
+        # CÓDIGOS CORREGIDOS DIRECTAMENTE DESDE EL CÓDIGO FUENTE DE TU FORMULARIO
         form_data = {
-            "entry.1593482012": str(item["ID"]),          # ID
-            "entry.1428593021": str(item["Fecha y Hora"]),  # Fecha y Hora
-            "entry.684920153": str(item["Usuario"]),       # Usuario
-            "entry.1938402851": str(item["Acción"]),        # Acción
-            "entry.573920148": str(item["Producto"]),      # Producto
-            "entry.1184920472": str(item["Código"]),        # Código
-            "entry.948201538": str(item["Presentación"]),  # Presentación
-            "entry.384920147": str(item["Marca"]),         # Marca
-            "entry.1749204825": str(item["Cantidad"])       # Cantidad
+            "entry.233492751": str(item["ID"]),
+            "entry.1764920485": str(item["Fecha y Hora"]),
+            "entry.885921473": str(item["Usuario"]),
+            "entry.294820156": str(item["Acción"]),
+            "entry.1473920158": str(item["Producto"]),
+            "entry.1184920472": str(item["Código"]),
+            "entry.1948201537": str(item["Presentación"]),
+            "entry.583920146": str(item["Marca"]),
+            "entry.674920482": str(item["Cantidad"])
         }
         try:
             requests.post(FORM_URL, data=form_data)
@@ -177,7 +177,7 @@ with pestana_kardex:
         df_kardex = cargar_kardex_permanente()
         
         if df_kardex.empty:
-            st.info("ℹ️ No hay registros en el historial todavía. Registra un producto para verificar la conexión.")
+            st.info("ℹ️ No hay registros en el historial todavía.")
         else:
             csv_completo = df_kardex.to_csv(index=False).encode('utf-8')
             st.download_button(label="📥 EXPORTAR HISTORIAL COMPLETO (CSV)", data=csv_completo, file_name="Kardex_Dipharma.csv", mime="text/csv", use_container_width=True)
