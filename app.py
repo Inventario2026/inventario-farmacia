@@ -7,7 +7,7 @@ import requests
 # Configuración de la página
 st.set_page_config(page_title="Inventario Farmacia - Dipharma", layout="wide")
 
-# URL de lectura de tu Google Sheets actual
+# URL de lectura: Tu nueva hoja de respuestas de Google Sheets (Formato CSV)
 GSHEET_URL = "https://docs.google.com/spreadsheets/d/1juwrB14zEMXiVtLPJVlOWfgAatdH8cYUpW2fIF9_u28/export?format=csv"
 
 if "kardex_local" not in st.session_state:
@@ -22,7 +22,6 @@ if "usuario_identificado" not in st.session_state:
 def cargar_kardex_permanente():
     try:
         df = pd.read_csv(GSHEET_URL)
-        # Combinar lo que viene de Google Sheets con lo guardado en la sesión local
         df_local = pd.DataFrame(st.session_state["kardex_local"])
         if not df_local.empty:
             if df.empty or "ID" not in df.columns:
@@ -33,26 +32,23 @@ def cargar_kardex_permanente():
         return pd.DataFrame(st.session_state["kardex_local"])
 
 def guardar_en_kardex_permanente(nuevos_registros_list):
-    # Usamos tu enlace directo que funciona sin autenticación
-    FORM_URL = "https://docs.google.com/forms/d/e/1FAIpQLSeycjgEhNf_fjh7y9PNQ8x2UHgPlSACOOEM5W75hfk2N0GEdQ/formResponse"
+    # URL de envío de tu NUEVO formulario "Registro Kardex"
+    FORM_URL = "https://docs.google.com/forms/d/e/1FAIpQLSf8xgFBC-ShCGpee9NcgrrmWK7UU4g1-t73UBKhG0UOYmf4Zg/formResponse"
     
     for item in nuevos_registros_list:
         st.session_state["kardex_local"].append(item)
         
-        # TRUCO: Juntamos todo en un solo texto organizado para que Google Sheets NO lo deje vacío
-        texto_unificado = f"ID: {item['ID']} | {item['Acción']} | {item['Producto']} | Cód: {item['Código']} | Pres: {item['Presentación']} | Marca: {item['Marca']} | Cant: {item['Cantidad']} | Por: {item['Usuario']}"
-        
-        # Enviamos el bloque de datos usando las posiciones que tu formulario sí acepta
+        # Mapeo exacto con los entry ID correspondientes de tu formulario
         form_data = {
-            "entry.1945657434": item["ID"],
-            "entry.1147575306": item["Fecha y Hora"],
-            "entry.348630325": item["Usuario"],
-            "entry.1118335017": item["Acción"],
-            "entry.1802958498": texto_unificado,  # Aquí inyectamos toda la info junta para que la leas clarita
-            "entry.1144005937": item["Código"],
-            "entry.582490515": item["Presentación"],
-            "entry.527632616": item["Marca"],
-            "entry.1687441164": str(item["Cantidad"])
+            "entry.1593482012": str(item["ID"]),
+            "entry.1428593021": str(item["Fecha y Hora"]),
+            "entry.684920153": str(item["Usuario"]),
+            "entry.1938402851": str(item["Acción"]),
+            "entry.573920148": str(item["Producto"]),
+            "entry.1184920472": str(item["Código"]),
+            "entry.948201538": str(item["Presentación"]),
+            "entry.384920147": str(item["Marca"]),
+            "entry.1749204825": str(item["Cantidad"])
         }
         try:
             requests.post(FORM_URL, data=form_data)
@@ -143,14 +139,14 @@ with pestana_registro:
                 with st.spinner("Guardando en la nube..."):
                     guardar_en_kardex_permanente(nuevos)
                 st.session_state["lista_espera_productos"] = []
-                st.success("🎉 ¡Guardado exitoso!")
+                st.success("🎉 ¡Guardado exitoso y permanente!")
                 st.rerun()
 
 # FOTO
 with pestana_foto:
     st.camera_input("Toma la foto de la factura aquí:")
 
-# KARDEX ADMINISTRADOR (CON EL BOTÓN DE BORRAR TOTALMENTE ACTIVO)
+# KARDEX ADMINISTRADOR
 with pestana_kardex:
     clave = st.text_input("Introduce la clave secreta:", type="password")
     if clave == "1999":
